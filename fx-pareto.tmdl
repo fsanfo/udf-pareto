@@ -1,0 +1,84 @@
+createOrReplace
+
+	/// fx Pareto.Acumulado - calcula o acumulado da medida informada (baseado no Ranking) a partir de uma coluna (dimensão)
+	function 'Pareto.Acumulado' =
+			(
+			        coluna: anyref,
+			        criterio: expr
+			    ) =>
+					VAR __DimensaoAtual = SELECTEDVALUE(coluna)
+			        VAR __TabelaRank = Pareto.TabelaRank(coluna, criterio)
+			        RETURN
+			            MAXX(
+			                FILTER(__TabelaRank, coluna = __DimensaoAtual),
+			                [@Acumulado]
+			            )
+		lineageTag: 9decbc6e-6472-4732-b017-0a29ceab07ae
+
+	/// fx Pareto.Participacao - calcula a participacao (%) da medida informada sobre o total da coluna (dimensao)
+	function 'Pareto.Participacao' = ```
+			(
+			        coluna: anyref, 
+			        criterio: expr 
+			    ) =>
+			        VAR __Total = CALCULATE(criterio, ALLSELECTED(coluna))
+					RETURN
+						DIVIDE(criterio, __Total)
+			```
+		lineageTag: 00584708-0f24-49f0-8990-e02d7a1aab3b
+
+	/// fx Pareto.Percentual - calcula o percentual (acumulado) sobre o total da medida informada a partir de uma coluna (dimensão)
+	function 'Pareto.Percentual' =
+			(
+			        coluna: anyref,
+			        criterio: expr
+			    ) =>
+			        VAR __ValorAcumulado = Pareto.Acumulado(coluna, criterio)
+			        VAR __Total = CALCULATE(criterio, ALLSELECTED(coluna))
+			        RETURN
+			            DIVIDE(__ValorAcumulado, __Total)
+		lineageTag: 48b041b7-4b21-483d-8ca4-7a7cb36716ab
+
+	/// fx Pareto.Ranking - calcula o ranking da medida informada a partir de uma coluna (dimensão)
+	function 'Pareto.Ranking' =
+			(
+			        coluna: anyref,
+			        criterio: expr
+			    ) =>
+			        VAR __DimensaoAtual = SELECTEDVALUE(coluna)
+			        VAR __TabelaRank = Pareto.TabelaRank(coluna, criterio)
+			        RETURN
+			            MAXX(
+			                FILTER(__TabelaRank, coluna = __DimensaoAtual),
+			                [@Ranking]
+			            )
+		lineageTag: 6bd4a5f4-1222-4cd6-ab2a-1b6c0789e787
+
+	/// fx Pareto.TabelaRank - gera uma tabela virtual com ranking, valor e acumulado. É a base para as outras funções.
+	function 'Pareto.TabelaRank' =
+			(
+			        coluna: anyref,
+			        criterio: expr
+			    ) =>
+			        VAR __TabelaBase =
+			            FILTER(
+			                ALLSELECTED(coluna),
+			                NOT(ISBLANK(criterio)) && criterio <> 0
+			            )
+			        VAR __TabelaComRank =
+			            ADDCOLUMNS(
+			                __TabelaBase,
+			                "@Valor", criterio,
+			                "@Ranking", RANKX(__TabelaBase, criterio, , DESC, Dense)
+			            )
+			        VAR __TabelaComAcumulado =
+			            ADDCOLUMNS(
+			                __TabelaComRank,
+			                "@Acumulado", SUMX(
+			                    FILTER(__TabelaComRank, [@Ranking] <= EARLIER([@Ranking])),
+			                    [@Valor]
+			                )
+			            )
+			        RETURN __TabelaComAcumulado
+		lineageTag: 687a68d5-5f90-47ea-a266-f7d3db0696da
+
